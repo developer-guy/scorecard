@@ -27,21 +27,22 @@ import (
 	"go.uber.org/zap"
 )
 
-// GithubAuthTokens are for making requests to GiHub's API.
-var GithubAuthTokens = []string{"GITHUB_AUTH_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "GH_AUTH_TOKEN"}
+// githubAuthTokens are for making requests to GiHub's API.
+var githubAuthTokens = []string{"GITHUB_AUTH_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "GH_AUTH_TOKEN"}
 
 const (
-
-	// GithubAppKeyPath is the path to file for GitHub App key.
-	GithubAppKeyPath = "GITHUB_APP_KEY_PATH"
-	// GithubAppID is the app ID for the GitHub App.
-	GithubAppID = "GITHUB_APP_ID"
-	// GithubAppInstallationID is the installation ID for the GitHub App.
-	GithubAppInstallationID = "GITHUB_APP_INSTALLATION_ID"
+	// githubAppKeyPath is the path to file for GitHub App key.
+	githubAppKeyPath = "GITHUB_APP_KEY_PATH"
+	// githubAppID is the app ID for the GitHub App.
+	githubAppID = "GITHUB_APP_ID"
+	// githubAppInstallationID is the installation ID for the GitHub App.
+	githubAppInstallationID = "GITHUB_APP_INSTALLATION_ID"
+	// githubSecretServer is the RPC URL for the secret server.
+	githubSecretServer = "GITHUB_SECRET_SERVER"
 )
 
 func readGitHubTokens() (string, bool) {
-	for _, name := range GithubAuthTokens {
+	for _, name := range githubAuthTokens {
 		if token, exists := os.LookupEnv(name); exists && token != "" {
 			return token, exists
 		}
@@ -56,13 +57,13 @@ func NewTransport(ctx context.Context, logger *zap.SugaredLogger) http.RoundTrip
 	// nolint
 	if token, exists := readGitHubTokens(); exists {
 		// Use GitHub PAT
-		transport = MakeGitHubTransport(transport, strings.Split(token, ","))
-	} else if keyPath := os.Getenv(GithubAppKeyPath); keyPath != "" { // Also try a GITHUB_APP
-		appID, err := strconv.Atoi(os.Getenv(GithubAppID))
+		transport = makeGitHubTransport(transport, makeTokenAccessor(strings.Split(token, ",")))
+	} else if keyPath := os.Getenv(githubAppKeyPath); keyPath != "" { // Also try a GITHUB_APP
+		appID, err := strconv.Atoi(os.Getenv(githubAppID))
 		if err != nil {
 			log.Panic(err)
 		}
-		installationID, err := strconv.Atoi(os.Getenv(GithubAppInstallationID))
+		installationID, err := strconv.Atoi(os.Getenv(githubAppInstallationID))
 		if err != nil {
 			log.Panic(err)
 		}
@@ -70,6 +71,8 @@ func NewTransport(ctx context.Context, logger *zap.SugaredLogger) http.RoundTrip
 		if err != nil {
 			log.Panic(err)
 		}
+	} else if secretServer := os.Getenv(githubSecretServer); secretServer != "" {
+		transport = makeGitHubTransport(transport, makeRPCAccessor(secretServer))
 	} else {
 		log.Fatalf("GitHub token env var is not set. " +
 			"Please read https://github.com/ossf/scorecard#authentication")

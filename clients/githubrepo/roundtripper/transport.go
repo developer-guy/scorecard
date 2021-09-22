@@ -17,6 +17,7 @@ package roundtripper
 import (
 	"fmt"
 	"net/http"
+	"net/rpc"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -29,11 +30,11 @@ import (
 
 const expiryTimeInSec = 30
 
-// MakeGitHubTransport wraps input RoundTripper with GitHub authorization logic.
-func MakeGitHubTransport(innerTransport http.RoundTripper, accessTokens []string) http.RoundTripper {
+// makeGitHubTransport wraps input RoundTripper with GitHub authorization logic.
+func makeGitHubTransport(innerTransport http.RoundTripper, accessor tokenAccessor) http.RoundTripper {
 	return &githubTransport{
 		innerTransport: innerTransport,
-		tokens:         makeTokenAccessor(accessTokens),
+		tokens:         accessor,
 	}
 }
 
@@ -73,6 +74,27 @@ func (gt *githubTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		stats.Record(ctx, githubstats.RemainingTokens.M(int64(remaining)))
 	}
 	return resp, nil
+}
+
+func makeRPCAccess(serverURL string) tokenAccessor {
+	client, err := rpc.DialHTTP("tcp", serverURL)
+	if err != nil {
+		panic(err)
+	}
+	return &rpcAccessor{
+		client: client,
+	}
+}
+
+type rpcAccessor struct {
+	client *rpc.Client
+}
+
+func (accessor *rpcAccessor) next() (uint64, string) {
+	return 0, ""
+}
+func (accessor *rpcAccessor) release(index uint64) {
+	accessor.client.Call("TokenAccessor.Release", index, nil)
 }
 
 func makeTokenAccessor(accessTokens []string) tokenAccessor {
