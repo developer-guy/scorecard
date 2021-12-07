@@ -106,6 +106,21 @@ signs:
   - artifacts: checksum
     args: ["--batch", "-u", "{{ .Env.GPG_FINGERPRINT }}", "--output", "${signature}", "--detach-sign", "${artifact}"]
 
+brews:
+  - tap:
+      owner: developer-guy
+      name: homebrew-tap
+    folder: Formula
+    homepage: https://openssf.org
+    description: Security Scorecards - Security health metrics for Open Source
+    license: Apache License
+    test: |
+      system "#{bin}/scorecard version"
+    dependencies:
+    - name: go
+      type: optional
+    - name: git
+
 release:
   footer: |
     ### Thanks for all contributors!
